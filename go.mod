@@ -1,4 +1,4 @@
-module cometbft-sign-rate
+module cometbftsignrate
 
 go 1.21.1
 
