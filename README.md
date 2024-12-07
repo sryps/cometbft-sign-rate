@@ -8,6 +8,8 @@ CometBFT Sign Rate is a tool designed to monitor and report the signing rate of 
 - Generate reports on validator performance
 - Easily alert on low signing rates
 - Easy integration with CometBFT networks
+- Persistent data storage with sqlite DB
+- Optional pruning to remove unnecessary records and keep DB small
 
 ## Installation
 
