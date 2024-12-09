@@ -30,7 +30,7 @@ func processChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 			Logger("WARN", ModuleDB{ChainID: chain.ChainID, Operation: "GetLastBlockHeight", Success: false, Message: fmt.Sprintf("Using current height less %d", initialScan)})
 			lastCheckedHeight = currentHeight - initialScan
 		}
-		Logger("INFO", ModuleDB{ChainID: chain.ChainID, Operation: "GetLastBlockHeight", Success: true, Height: lastCheckedHeight, Message: fmt.Sprintf("Chain %s will start syncing from height %d", chain.ChainID, lastCheckedHeight)})
+		Logger("INFO", fmt.Sprintf("Chain %s will start syncing from height %d", chain.ChainID, lastCheckedHeight))
 		
 
 		// Insert data for all blocks between last checked height and current height

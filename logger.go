@@ -32,7 +32,7 @@ type ModuleHTTP struct {
 	ChainID   string `json:"chain_id"`
 	Operation string `json:"operation"`
 	Height    int    `json:"height,omitempty"`
-	SignatureFound bool `json:"signature_found:omitempty"`
+	SignatureFound bool `json:"signature_found,omitempty"`
 	Success   bool   `json:"success,omitempty"`
 	Message   string `json:"message,omitempty"`
 }

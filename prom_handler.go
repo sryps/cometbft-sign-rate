@@ -72,7 +72,7 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 
 // Periodically update metrics every 15 seconds
 func StartMetricsUpdater(chain Chain, db *sql.DB) {
-	Logger("INFO", "Starting metrics updater...")
+	Logger("INFO", fmt.Sprintf("Starting metrics updater for %s...", chain.ChainID))
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 

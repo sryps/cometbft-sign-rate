@@ -61,8 +61,13 @@ func main() {
 
     
 	// make a channel to handle graceful shutdown
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	stopGraceful := make(chan os.Signal, 1)
+	stopImmediate := make(chan os.Signal, 1)
+
+	// SIGTERM -> graceful shutdown
+	signal.Notify(stopGraceful, syscall.SIGTERM)
+	// SIGINT (Ctrl+C) -> immediate shutdown
+	signal.Notify(stopImmediate, os.Interrupt)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -84,7 +89,6 @@ func main() {
 					return
 				default:
 					StartMetricsUpdater(chain, db)
-					time.Sleep(2 * time.Second)
 				}
 			}
 		}(chain)
@@ -131,33 +135,39 @@ func main() {
 		}
 	}()
 
-	<-stop
-
-	Logger("INFO", "Shutting down HTTP server... starting graceful shutdown")
-
-	// shutdown the server
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != http.ErrServerClosed {
-		Logger("ERROR", fmt.Sprintf("HTTP server error: %v", err))
-	}
-
-	// trigger a cancel on the context to stop the goroutines
-	cancel()
-
-	// wait for the goroutines to finish
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
 	select {
-	case <-done:
-		Logger("INFO", "Graceful shutdown completed")
-	case <-time.After(10 * time.Second):
-		Logger("WARN", "Graceful shutdown timed out")
+	case <-stopGraceful:
+		Logger("INFO", "Initiating graceful shutdown...")
+		// Existing graceful shutdown code
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		
+		if err := srv.Shutdown(shutdownCtx); err != http.ErrServerClosed {
+			Logger("ERROR", fmt.Sprintf("HTTP server error: %v", err))
+		}
+		
+		cancel() // Cancel context for goroutines
+		
+		// Wait for goroutines
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		
+		select {
+		case <-done:
+			Logger("INFO", "Graceful shutdown completed")
+		case <-time.After(10 * time.Second):
+			Logger("WARN", "Graceful shutdown timed out")
+		}
+	
+	case <-stopImmediate:
+		Logger("INFO", "Immediate shutdown requested")
+		// Immediate shutdown - just exit
+		cancel()  // Cancel context for goroutines
+		CloseDB(db)
+		os.Exit(1)
 	}
 
 	// Close the SQLite DB

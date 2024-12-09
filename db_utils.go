@@ -74,7 +74,7 @@ func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address str
 			Logger("ERROR", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: err.Error()})
 			return err
 		}
-		Logger("INFO", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: true, Message: "Successfully inserted block height into DB"})
+		Logger("INFO", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, SignatureFound: signatureFound, Success: true, Message: "Successfully inserted block height into DB"})
 	} else {
 		Logger("WARN", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: "Block height already exists in DB"})
 	}	
@@ -98,7 +98,7 @@ func GetLastBlockHeight(db *sql.DB, chainID string, currentNodeHeight int, signi
 	// If pruning is enabled, check if the difference between the current node height and the last checked height is greater than the signing window
 	if pruningEnabled {
 		if currentNodeHeight - blockHeight > signingWindow {
-			Logger("WARN", ModuleDB{ChainID: chainID, Operation: "GetLastBlockHeight", Message: fmt.Sprintf("Last checked height is older than the signing window (%d)", signingWindow)})
+			Logger("WARN", fmt.Sprintf("Last checked height for %s is older than the signing window (%d)", chainID,signingWindow))
 			return currentNodeHeight - signingWindow, nil
 		}
 	}
