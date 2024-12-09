@@ -104,13 +104,16 @@ func main() {
 
 	// Set up the HTTP server
 	app := &App{DB: db}
-	InitMetrics()
+	customRegistry, err := InitMetrics()
+	if err != nil {
+		log.Fatalf("Error initializing metrics: %v\n", err)
+	}
 
 	// create a mux/router for handlers
 	mux := http.NewServeMux()
 	mux.HandleFunc("/signrate", app.amountOfSignatureNotFoundHandler)
 	// add prom metrics endpoint - dont need the wrapper around MetricsHandler
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
 
 	srv := &http.Server{
 		Addr:         ":" + strconv.Itoa(config.GlobalConfig.HttpPort),

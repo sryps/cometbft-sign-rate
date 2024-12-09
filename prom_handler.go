@@ -52,7 +52,7 @@ var (
 )
 
 // Initialize and register Prometheus metrics
-func InitMetrics() {
+func InitMetrics() (*prometheus.Registry, error) {
 	customRegistry := prometheus.NewRegistry()
 
     // Register your custom metrics
@@ -62,8 +62,7 @@ func InitMetrics() {
 	customRegistry.MustRegister(NumberOfRecordsForChain)
 	customRegistry.MustRegister(SigningWindowSize)
 
-    // Expose the metrics through an HTTP endpoint using the custom registry
-    http.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
+    return customRegistry, nil
 }
 
 // Metrics handler to expose the metrics to Prometheus
