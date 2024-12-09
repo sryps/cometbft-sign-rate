@@ -17,8 +17,10 @@ func processChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 		logJSONMessageGeneral("INFO", fmt.Sprintf("Current block height for: %s is %d", chain.ChainID, currentHeight))
 
 
-		// Get last checked height from DB - if no record exists, use current height less initialScan
-		lastCheckedHeight, err := GetLastBlockHeight(db, chain.ChainID)
+		// Get last checked height from DB
+		// if no record exists, use current height less initialScan
+		// if pruning is enabled, and latest record is older than (current_height - signing_window) use the current height less the signing window
+		lastCheckedHeight, err := GetLastBlockHeight(db, chain.ChainID, currentHeight, chain.SigningWindow, chain.PruningEnabled)
 		if err != nil {
 			logJSONMessageGeneral("WARN", fmt.Sprintf("Error getting last checked height for: %s - %v", chain.ChainID, err))
 		}
@@ -27,8 +29,7 @@ func processChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 			logJSONMessageGeneral("WARN", fmt.Sprintf("Error getting last checked height for: %s - using current height less %d", chain.ChainID, initialScan))
 			lastCheckedHeight = currentHeight - initialScan
 		}
-		logJSONMessageGeneral("INFO", fmt.Sprintf("Last checked height for: %s is %d", chain.ChainID, lastCheckedHeight))
-
+		logJSONMessageGeneral("WARN", fmt.Sprintf("Chain %s will start syncing from height %d", chain.ChainID, lastCheckedHeight))
 		logJSONMessageGeneral("INFO", fmt.Sprintf("Checking for signatures between %d and %d for: %s", lastCheckedHeight, currentHeight, chain.ChainID))
 
 

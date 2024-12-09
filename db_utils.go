@@ -83,7 +83,8 @@ func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address str
 
 
 
-func GetLastBlockHeight(db *sql.DB, chainID string) (int, error) {
+func GetLastBlockHeight(db *sql.DB, chainID string, currentNodeHeight int, signingWindow int, pruningEnabled bool) (int, error) {
+	// Get the latest block height for the given chain_id from DB
 	var blockHeight int
 	querySQL := `SELECT block_height FROM cometbft_signatures WHERE chain_id = ? ORDER BY block_height DESC LIMIT 1`
 	err := db.QueryRow(querySQL, chainID).Scan(&blockHeight)
@@ -93,6 +94,15 @@ func GetLastBlockHeight(db *sql.DB, chainID string) (int, error) {
 		}
 		return 0, fmt.Errorf("failed to get latest block height: %v", err)
 	}
+
+	// If pruning is enabled, check if the difference between the current node height and the last checked height is greater than the signing window
+	if pruningEnabled {
+		if currentNodeHeight - blockHeight > signingWindow {
+			logJSONMessageGeneral("WARN", fmt.Sprintf("Last checked height for chain_id %s is older than the signing window (%d)", chainID, signingWindow))
+			return currentNodeHeight - signingWindow, nil
+		}
+	}
+
 	return blockHeight, nil
 }
 
@@ -158,6 +168,7 @@ func getAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (i
 		return 0, "", fmt.Errorf("chain_id %s not found", chainID)
 	}
 
+	// Get the amount of signatures not found
 	var count int
 	querySQL = `
 		SELECT COUNT(*) 
@@ -176,7 +187,7 @@ func getAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (i
 		return 0, "", fmt.Errorf("failed to get amount of signatures not found: %v", err)
 	}
 
-	// get lastest block_timestamp
+	// get latest block_timestamp
 	querySQL = `
 		SELECT timestamp
 		FROM cometbft_signatures
@@ -194,6 +205,7 @@ func getAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (i
 }
 
 func getNumberOfRecordsForChain(db *sql.DB, chainID string) (int, error) {
+	// Get the number of records for the given chain_id
 	var count int
 	querySQL := `SELECT COUNT(*) FROM cometbft_signatures WHERE chain_id = ?`
 	err := db.QueryRow(querySQL, chainID).Scan(&count)

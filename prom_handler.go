@@ -86,7 +86,7 @@ func StartMetricsUpdater(chain Chain, db *sql.DB) {
 func updateMetrics(db *sql.DB) {
 
 	for _, chain := range Chains {
-
+		logJSONMessageGeneral("INFO", fmt.Sprintf("Updating metrics for chain %s", chain.ChainID))
 		// Get the data for this chainID
 		count, latestBlockTimestamp, err := getAmountOfSignatureNotFound(db, chain.ChainID, chain.SigningWindow)
 		if err != nil {
