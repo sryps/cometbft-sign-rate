@@ -36,7 +36,7 @@ func main() {
 	// Remove default timestamp from logs
 	log.SetFlags(0)
 
-	logJSONMessageGeneral("INFO", "Starting CometBFT signatures service...")
+	Logger("INFO", "Starting CometBFT signatures service...")
 
 	// Define a cli flag for the config file location
 	configFileLocation := flag.String("config", "./config.toml", "Path to the config file")
@@ -123,29 +123,24 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start the server
-	// port := ":" + strconv.Itoa(config.GlobalConfig.HttpPort)
-	// logJSONMessageGeneral("INFO", "HTTP Server is running on "+port)
-	// log.Fatal(http.ListenAndServe(port, nil))
 	// Start the HTTP server in a separate goroutine - to alllow for graceful shutdown
-
 	go func() {
-		logJSONMessageGeneral("INFO", "HTTP Server is running on "+":"+srv.Addr)
+		Logger("INFO", "HTTP Server is running on "+":"+srv.Addr)
 		if err := srv.ListenAndServe(); err != nil {
-			logJSONMessageGeneral("ERROR", fmt.Sprintf("HTTP server shutdown error: %v", err))
+			Logger("ERROR", fmt.Sprintf("HTTP server shutdown error: %v", err))
 		}
 	}()
 
 	<-stop
 
-	logJSONMessageGeneral("INFO", "Shutting down HTTP server... starting graceful shutdown")
+	Logger("INFO", "Shutting down HTTP server... starting graceful shutdown")
 
 	// shutdown the server
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != http.ErrServerClosed {
-		logJSONMessageGeneral("ERROR", fmt.Sprintf("HTTP server error: %v", err))
+		Logger("ERROR", fmt.Sprintf("HTTP server error: %v", err))
 	}
 
 	// trigger a cancel on the context to stop the goroutines
@@ -160,12 +155,12 @@ func main() {
 
 	select {
 	case <-done:
-		logJSONMessageGeneral("INFO", "Graceful shutdown completed")
+		Logger("INFO", "Graceful shutdown completed")
 	case <-time.After(10 * time.Second):
-		logJSONMessageGeneral("WARN", "Graceful shutdown timed out")
+		Logger("WARN", "Graceful shutdown timed out")
 	}
 
 	// Close the SQLite DB
 	CloseDB(db)
-	logJSONMessageGeneral("INFO", "Shutdown complete")
+	Logger("INFO", "Shutdown complete")
 }

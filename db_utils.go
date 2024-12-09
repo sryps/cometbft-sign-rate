@@ -10,7 +10,7 @@ import (
 
 // initDB initializes the database and creates the table if it doesn't exist.
 func initDB(dbFile string) (*sql.DB, error ) {
-	logJSONMessageGeneral("INFO", "Initializing database...")
+	Logger("INFO", "Initializing database...")
 
 	if dbFile == "" {
 		return nil, fmt.Errorf("dbFile is empty")
@@ -44,7 +44,7 @@ func initDB(dbFile string) (*sql.DB, error ) {
 func CloseDB(db *sql.DB) {
 	err := db.Close()
 	if err != nil {
-		logJSONMessageGeneral("ERROR", "Error closing the database...")
+		Logger("ERROR", fmt.Sprintf("Error closing the database: %v", err))
 	}
 }
 
@@ -71,12 +71,12 @@ func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address str
 		VALUES (?, ?, ?, ?, ?, ?)`
 		_, err = db.Exec(insertSQL, timestamp, chainID, address, blockHeight, signature, signatureFound)
 		if err != nil {
-			logJSONMessageGeneral("ERROR", fmt.Sprintf("ERROR inserted block height %d for chain %s into DB - %v", blockHeight, chainID, err))
+			Logger("ERROR", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: err.Error()})
 			return err
 		}
-		logJSONMessageGeneral("INFO", fmt.Sprintf("Successfully inserted block height %d for chain %s into DB", blockHeight, chainID))
+		Logger("INFO", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: true, Message: "Successfully inserted block height into DB"})
 	} else {
-		logJSONMessageGeneral("WARN", fmt.Sprintf("Block height %d for chain %s already exists in DB", blockHeight, chainID))
+		Logger("WARN", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: "Block height already exists in DB"})
 	}	
 	return nil
 }
@@ -98,7 +98,7 @@ func GetLastBlockHeight(db *sql.DB, chainID string, currentNodeHeight int, signi
 	// If pruning is enabled, check if the difference between the current node height and the last checked height is greater than the signing window
 	if pruningEnabled {
 		if currentNodeHeight - blockHeight > signingWindow {
-			logJSONMessageGeneral("WARN", fmt.Sprintf("Last checked height for chain_id %s is older than the signing window (%d)", chainID, signingWindow))
+			Logger("WARN", ModuleDB{ChainID: chainID, Operation: "GetLastBlockHeight", Message: fmt.Sprintf("Last checked height is older than the signing window (%d)", signingWindow)})
 			return currentNodeHeight - signingWindow, nil
 		}
 	}
@@ -125,7 +125,7 @@ func DeleteOldRecords(db *sql.DB, chainID string, recordCount int) error {
 	err := db.QueryRow(query, chainID, recordCount).Scan(&thresholdID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			logJSONMessageGeneral("WARN", fmt.Sprintf("No records to prune for chain_id %s", chainID))
+			Logger("WARN", ModuleDB{ChainID: chainID, Operation: "DeleteOldRecords", Success: true, Message: "No records to prune"})
 			return nil
 		}
 		return fmt.Errorf("failed to get threshold ID: %w", err)
@@ -142,7 +142,7 @@ func DeleteOldRecords(db *sql.DB, chainID string, recordCount int) error {
 		return fmt.Errorf("failed to delete old records: %w", err)
 	}
 
-	logJSONMessageGeneral("INFO", fmt.Sprintf("Successfully deleted old records for chain_id %s", chainID))
+	Logger("INFO", ModuleDB{ChainID: chainID, Operation: "DeleteOldRecords", Success: true, Message: "Successfully deleted old records"})
 	return nil
 }
 

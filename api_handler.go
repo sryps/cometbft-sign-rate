@@ -64,5 +64,5 @@ func (app *App) amountOfSignatureNotFoundHandler(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
-	logJSONMessageGeneral("INFO", fmt.Sprintf("API request successfully sent for: %s", chainID))
+	Logger("INFO", ModuleHTTP{ChainID: chainID, Operation: "API HTTP Request", Success: true})
 }

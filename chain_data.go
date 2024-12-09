@@ -14,7 +14,7 @@ func processChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 		if err != nil {
 			log.Fatalf("Error getting current height for: %s - %v\n", chain.ChainID, err)
 		}
-		logJSONMessageGeneral("INFO", fmt.Sprintf("Current block height for: %s is %d", chain.ChainID, currentHeight))
+		Logger("INFO", ModuleHTTP{ChainID: chain.ChainID, Height: currentHeight, Operation: "getCurrentHeight", Success: true}) 
 
 
 		// Get last checked height from DB
@@ -22,16 +22,16 @@ func processChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 		// if pruning is enabled, and latest record is older than (current_height - signing_window) use the current height less the signing window
 		lastCheckedHeight, err := GetLastBlockHeight(db, chain.ChainID, currentHeight, chain.SigningWindow, chain.PruningEnabled)
 		if err != nil {
-			logJSONMessageGeneral("WARN", fmt.Sprintf("Error getting last checked height for: %s - %v", chain.ChainID, err))
+			Logger("WARN", ModuleDB{ChainID: chain.ChainID, Operation: "GetLastBlockHeight", Success: false})
+			Logger("WARN", "Falling back to using current height less initialScan || signing window")
 		}
 
 		if lastCheckedHeight == 0 {
-			logJSONMessageGeneral("WARN", fmt.Sprintf("Error getting last checked height for: %s - using current height less %d", chain.ChainID, initialScan))
+			Logger("WARN", ModuleDB{ChainID: chain.ChainID, Operation: "GetLastBlockHeight", Success: false, Message: fmt.Sprintf("Using current height less %d", initialScan)})
 			lastCheckedHeight = currentHeight - initialScan
 		}
-		logJSONMessageGeneral("WARN", fmt.Sprintf("Chain %s will start syncing from height %d", chain.ChainID, lastCheckedHeight))
-		logJSONMessageGeneral("INFO", fmt.Sprintf("Checking for signatures between %d and %d for: %s", lastCheckedHeight, currentHeight, chain.ChainID))
-
+		Logger("INFO", ModuleDB{ChainID: chain.ChainID, Operation: "GetLastBlockHeight", Success: true, Height: lastCheckedHeight, Message: fmt.Sprintf("Chain %s will start syncing from height %d", chain.ChainID, lastCheckedHeight)})
+		
 
 		// Insert data for all blocks between last checked height and current height
 		for i := lastCheckedHeight; i < currentHeight; i++ {
@@ -39,15 +39,15 @@ func processChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 
 			err := InsertBlockHeight(db, timestamp, chain.ChainID, chain.HexAddress, i, sigFound, signature)
 			if err != nil {
-				logJSONMessageGeneral("ERROR", fmt.Sprintf("Error inserting block to DB for: %s - %v", chain.ChainID, err))
+				Logger("ERROR", ModuleDB{ChainID: chain.ChainID, Operation: "InsertBlockHeight", Height: i, SignatureFound: sigFound, Success: false, Message: err.Error()})
 			}
 		}
-		logJSONMessageGeneral("INFO", fmt.Sprintf("Finished processing signatures for %s, sleeping for %d seconds", chain.ChainID, sleepDuration))
+		Logger("INFO", ModuleDB{ChainID: chain.ChainID, Operation: "InsertBlockHeight", Success: true, Message: fmt.Sprintf("Finished processing signatures, sleeping for %d seconds", sleepDuration)})
 
 		
 		// Prune old records if pruning is enabled - delete records older than the signing window
 		if chain.PruningEnabled {
-			logJSONMessageGeneral("INFO", fmt.Sprintf("Pruning block data for %s older than %d blocks...", chain.ChainID, chain.SigningWindow))
+			Logger("INFO", ModulePruner{ChainID: chain.ChainID, Operation: "PruneOldRecords", Height: currentHeight, Message: fmt.Sprintf("Pruning block data older than %d blocks", chain.SigningWindow)})
 			DeleteOldRecords(db, chain.ChainID, chain.SigningWindow)
 		}
 

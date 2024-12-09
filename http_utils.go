@@ -44,14 +44,14 @@ func getCurrentHeight(chainID string, address string) (int, error) {
 	
 	resp, err := http.Get(url)
 	if err != nil {
-		logJSONMessageGeneral("ERROR",fmt.Sprintf("ERROR: %v", err))
+		Logger("ERROR", ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: err.Error()})
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logJSONMessageGeneral("ERROR",fmt.Sprintf("ERROR: %v", err))
+		Logger("ERROR", ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: err.Error()})
 		log.Fatal(err)
 	}
 
@@ -64,21 +64,21 @@ func getCurrentHeight(chainID string, address string) (int, error) {
 	// check chainID matches nodes chainID
 	nodeChainID := currentHeightResponse.Result.NodeInfo.Network
 	if nodeChainID != chainID {
-		logJSONMessageGeneral("ERROR",fmt.Sprintf("ERROR: Chain ID mismatch: %s != %s", chainID, nodeChainID))
+		Logger("ERROR", ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: fmt.Sprintf("Chain ID mismatch: %s != %s", chainID, nodeChainID)})
 		log.Fatalf(fmt.Sprintf("ERROR: Chain ID mismatch: %s != %s", chainID, nodeChainID))
 	}
 
 	str := currentHeightResponse.Result.SyncInfo.LatestBlockHeight
 	num, err := strconv.Atoi(str)
 	if err != nil {
-		logJSONMessageGeneral("ERROR",fmt.Sprintf("ERROR: %v", err))
+		Logger("ERROR", ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: err.Error()})
 	}
 
 	return num, nil
 }
 
 
-func checkBlockSignature(chain string, host string, address string, height int, delay string) (string, bool, string){
+func checkBlockSignature(ChainID string, host string, address string, height int, delay string) (string, bool, string){
 	if delay != "0ms" {
 		delayDuration, err := time.ParseDuration(delay)
 		if err != nil {
@@ -90,7 +90,7 @@ func checkBlockSignature(chain string, host string, address string, height int, 
 	
 	resp, err := http.Get(url)
 	if err != nil {
-		logJSONMessageGeneral("ERROR", fmt.Sprintf("ERROR: %v", err))
+		Logger("ERROR", ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Success: false, Message: err.Error()})
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
@@ -118,6 +118,6 @@ func checkBlockSignature(chain string, host string, address string, height int, 
 		}
 	}
 	
-	logJSONMessageSignatures("INFO", chain, height, signatureFound)
+	Logger("INFO", ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Height: height, SignatureFound: signatureFound})
 	return time,signatureFound,signature
 }

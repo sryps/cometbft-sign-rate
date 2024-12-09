@@ -72,7 +72,7 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 
 // Periodically update metrics every 15 seconds
 func StartMetricsUpdater(chain Chain, db *sql.DB) {
-	logJSONMessageGeneral("INFO", "Starting metrics updater...")
+	Logger("INFO", "Starting metrics updater...")
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -85,7 +85,6 @@ func StartMetricsUpdater(chain Chain, db *sql.DB) {
 func updateMetrics(db *sql.DB) {
 
 	for _, chain := range Chains {
-		logJSONMessageGeneral("INFO", fmt.Sprintf("Updating metrics for chain %s", chain.ChainID))
 		// Get the data for this chainID
 		count, latestBlockTimestamp, err := getAmountOfSignatureNotFound(db, chain.ChainID, chain.SigningWindow)
 		if err != nil {
