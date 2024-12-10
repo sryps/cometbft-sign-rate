@@ -30,10 +30,10 @@ type GlobalChainConfig struct {
 	HttpPort int `toml:"http_port"`
 }
 
-func NewChainConfig() *ChainConfig {
+func SetDefaultChainConfig() *ChainConfig {
 	return &ChainConfig{
-		RPCdelay: "0ms", // Set the default value for RPCdelay
-		PruningEnabled: true, // Set the default value for PruningEnabled
+		RPCdelay: "0ms",
+		PruningEnabled: true,
 	}
 }
 
@@ -58,5 +58,6 @@ func ParseConfig(filename string) (*Config, error) {
 }
 
 func SetChains(config *Config) {
+	// Set global chain config
 	ChainsData = append(ChainsData, config.Chains...)
 }

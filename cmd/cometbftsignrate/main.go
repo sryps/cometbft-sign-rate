@@ -37,8 +37,10 @@ func main() {
 	configFileLocation := flag.String("config", "./config.toml", "Path to the config file")
 	flag.Parse()
 
-	// Parse config file for chains
-	config_utils.NewChainConfig()
+	// Set default chain config
+	config_utils.SetDefaultChainConfig()
+
+	// Parse the config file
 	config, err := config_utils.ParseConfig(*configFileLocation)
 	if err != nil {
 		log.Fatalf("Error parsing config file: %v\n", err)

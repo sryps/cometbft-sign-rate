@@ -22,7 +22,7 @@ host = "http://127.0.0.1:26657"
 # HEX pubkey of the validator signing key
 address = "A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1"
 
-# delay between RPC calls in case the node cant handle the load
+# delay between RPC calls in case the node cant handle the load - Default: "0ms"
 rpc_delay = "100ms"
 
 # signing window for the validator (number of blocks to check for signatures)
