@@ -3,6 +3,7 @@ package logger
 import (
 	"encoding/json"
 	"log"
+	"os"
 	"time"
 )
 
@@ -62,13 +63,15 @@ func PostLog(logLevel string, payload interface{}) {
 	case ModulePruner: // Treat as a ModulePruner
 		entry.ModulePruner = &v
 	default:
-		log.Fatalf("Unsupported payload type: %T", v)
+		PostLog("ERROR", "Unsupported logging payload type")
+		os.Exit(1)
 	}
 
 	// Marshal the log entry to JSON
 	logData, err := json.Marshal(entry)
 	if err != nil {
-		log.Fatalf("Error marshalling log entry: %v", err)
+		PostLog("ERROR", "Failed to marshal log entry to JSON")
+		os.Exit(1)
 	}
 
 	// Output the JSON log

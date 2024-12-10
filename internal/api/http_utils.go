@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -46,33 +46,36 @@ func GetCurrentHeight(chainID string, address string) (int, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: err.Error()})
-		log.Fatal(err)
+		os.Exit(1)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: err.Error()})
-		log.Fatal(err)
+		os.Exit(1)
 	}
 
 	var currentHeightResponse CurrentHeightResponse
 	err = json.Unmarshal(body, &currentHeightResponse)
 	if err != nil {
-		log.Fatal(err)
+		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: err.Error()})
+		os.Exit(1)
 	}
 
 	// check chainID matches nodes chainID
 	nodeChainID := currentHeightResponse.Result.NodeInfo.Network
 	if nodeChainID != chainID {
 		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: fmt.Sprintf("Chain ID mismatch: %s != %s", chainID, nodeChainID)})
-		log.Fatalf(fmt.Sprintf("ERROR: Chain ID mismatch: %s != %s", chainID, nodeChainID))
+		os.Exit(1)
 	}
 
+	// convert string to int
 	str := currentHeightResponse.Result.SyncInfo.LatestBlockHeight
 	num, err := strconv.Atoi(str)
 	if err != nil {
 		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: err.Error()})
+		os.Exit(1)
 	}
 
 	return num, nil
@@ -83,7 +86,8 @@ func CheckBlockSignature(ChainID string, host string, address string, height int
 	if delay != "0ms" {
 		delayDuration, err := time.ParseDuration(delay)
 		if err != nil {
-			log.Fatal(err)
+			logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Success: false, Message: err.Error()})
+			os.Exit(1)
 		}
 		time.Sleep(delayDuration)
 	}
@@ -92,19 +96,21 @@ func CheckBlockSignature(ChainID string, host string, address string, height int
 	resp, err := http.Get(url)
 	if err != nil {
 		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Success: false, Message: err.Error()})
-		log.Fatal(err)
+		os.Exit(1)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("ERROR: Failed to read response body: %v", err)
+		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Success: false, Message: err.Error()})
+		os.Exit(1)
 	}
 
 	var blockData BlockResult
 	err = json.Unmarshal(body, &blockData)
 	if err != nil {
-		log.Fatalf("ERROR: Failed to unmarshal JSON: %v", err)
+		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Success: false, Message: err.Error()})
+		os.Exit(1)
 	}
 
 	time := blockData.Result.Block.Header.Time

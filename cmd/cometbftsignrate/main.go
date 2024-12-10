@@ -43,7 +43,8 @@ func main() {
 	// Parse the config file
 	config, err := config_utils.ParseConfig(*configFileLocation)
 	if err != nil {
-		log.Fatalf("Error parsing config file: %v\n", err)
+		logger.PostLog("ERROR", fmt.Sprintf("Error parsing config file: %v", err))
+		os.Exit(1)
 	}
 
 	config_utils.SetChains(config)
@@ -51,7 +52,8 @@ func main() {
 	// Initialize the SQLite DB
 	db, err := db_utils.InitDB(config.GlobalConfig.DbLocation)
 	if err != nil {
-		log.Fatalf("Error initializing DB: %v\n", err)
+		logger.PostLog("ERROR", fmt.Sprintf("Error initializing DB: %v", err))
+		os.Exit(1)
 		return
 	}
 	defer db_utils.CloseDB(db)
@@ -61,19 +63,14 @@ func main() {
 	stopGraceful := make(chan os.Signal, 1)
 	stopImmediate := make(chan os.Signal, 1)
 
-	// SIGTERM -> graceful shutdown
+	// Handle SIGTERM and SIGINT
 	signal.Notify(stopGraceful, syscall.SIGTERM)
-	// SIGINT (Ctrl+C) -> immediate shutdown
 	signal.Notify(stopImmediate, os.Interrupt)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
-	// Process each chain in a separate goroutine
-	// this is better as it will insure that the are non blocking
-	// also allows for graceful shutdown and parralel processing
-	// benefits are independent operations not constrained by other process cycle time
-	// key constraint will be the SQLite DB as it is a shared resource
+	// Process each chain in a separate goroutine for parallel processing
 	for _, chainConfig := range config.Chains {
 		chain := chaindata.Chain(chainConfig)
 		wg.Add(2)
@@ -106,7 +103,9 @@ func main() {
 	// Set up the HTTP server
 	customRegistry, err := api.InitMetrics()
 	if err != nil {
-		log.Fatalf("Error initializing metrics: %v\n", err)
+		logger.PostLog("ERROR", fmt.Sprintf("Error initializing metrics: %v", err))
+		os.Exit(1)
+		
 	}
 
 	// create a mux/router for handlers

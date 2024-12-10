@@ -4,7 +4,7 @@ import (
 	"cometbftsignrate/internal/logger"
 	"database/sql"
 	"fmt"
-	"log"
+	"os"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -15,6 +15,7 @@ func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address str
 	querySQL := `SELECT MAX(block_height) FROM cometbft_signatures WHERE chain_id = ?`
 	err := db.QueryRow(querySQL, chainID).Scan(&latestRecordedBlockHeight)
 	if err != nil && err != sql.ErrNoRows {
+		logger.PostLog("ERROR", logger.ModuleDB{ChainID: chainID, Operation: "latestRecordedBlockHeight", Height: blockHeight, Success: false, Message: err.Error()})
 		return fmt.Errorf("failed to query max block height: %v", err)
 	}
 
@@ -23,7 +24,7 @@ func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address str
 	checkSQL := `SELECT EXISTS (SELECT 1 FROM cometbft_signatures WHERE block_height = ?)`
 	err = db.QueryRow(checkSQL, blockHeight).Scan(&exists)
 	if err != nil {
-		log.Fatalf("Failed to check existence: %v", err)
+		logger.PostLog("WARN", logger.ModuleDB{ChainID: chainID, Operation: "BlockHeightExist", Height: blockHeight, Success: false, Message: err.Error()})
 	}
 
 	if !exists {
@@ -33,7 +34,7 @@ func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address str
 		_, err = db.Exec(insertSQL, timestamp, chainID, address, blockHeight, signature, signatureFound)
 		if err != nil {
 			logger.PostLog("ERROR", logger.ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: err.Error()})
-			return err
+			os.Exit(1)
 		}
 		logger.PostLog("INFO", logger.ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, SignatureFound: signatureFound, Success: true, Message: "Successfully inserted block height into DB"})
 	} else {

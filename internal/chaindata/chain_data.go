@@ -3,7 +3,7 @@ package chaindata
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"os"
 	"time"
 
 	"cometbftsignrate/internal/api"
@@ -25,7 +25,8 @@ func ProcessChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 		// Get current height from RPC (also checks if chainID in config file matches the nodes chainID)
 		currentHeight, err := api.GetCurrentHeight(chain.ChainID, chain.HostAddress)
 		if err != nil {
-			log.Fatalf("Error getting current height for: %s - %v\n", chain.ChainID, err)
+			logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: chain.ChainID, Operation: "ProcessChain", Success: false, Message: err.Error()})
+			os.Exit(1)
 		}
 		logger.PostLog("INFO", logger.ModuleHTTP{ChainID: chain.ChainID, Height: currentHeight, Operation: "getCurrentHeight", Success: true}) 
 
@@ -53,6 +54,7 @@ func ProcessChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 			err := db_utils.InsertBlockHeight(db, timestamp, chain.ChainID, chain.HexAddress, i, sigFound, signature)
 			if err != nil {
 				logger.PostLog("ERROR", logger.ModuleDB{ChainID: chain.ChainID, Operation: "InsertBlockHeight", Height: i, SignatureFound: sigFound, Success: false, Message: err.Error()})
+				os.Exit(1)
 			}
 		}
 		logger.PostLog("INFO", logger.ModuleDB{ChainID: chain.ChainID, Operation: "InsertBlockHeight", Success: true, Message: fmt.Sprintf("Finished processing signatures, sleeping for %d seconds", sleepDuration)})
