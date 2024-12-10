@@ -14,50 +14,45 @@ import (
 	"syscall"
 	"time"
 
+	"cometbftsignrate/internal/api"
+	"cometbftsignrate/internal/chaindata"
+	"cometbftsignrate/internal/config_utils"
+	"cometbftsignrate/internal/db_utils"
+	"cometbftsignrate/internal/logger"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
-
-type Chain struct {
-	ChainID     string
-	HostAddress string
-	HexAddress  string
-	RPCdelay    string
-	SigningWindow int
-	PruningEnabled bool
-}
 
 type App struct {
 	DB *sql.DB
 }
 
-var Chains []ChainConfig
-
 func main() {
 	// Remove default timestamp from logs
 	log.SetFlags(0)
 
-	Logger("INFO", "Starting CometBFT signatures service...")
+	logger.PostLog("INFO", "Starting CometBFT signatures service...")
 
 	// Define a cli flag for the config file location
 	configFileLocation := flag.String("config", "./config.toml", "Path to the config file")
 	flag.Parse()
 
 	// Parse config file for chains
-	NewChainConfig()
-	config, err := parseConfig(*configFileLocation)
+	config_utils.NewChainConfig()
+	config, err := config_utils.ParseConfig(*configFileLocation)
 	if err != nil {
 		log.Fatalf("Error parsing config file: %v\n", err)
 	}
 
-	Chains = append(Chains, config.Chains...)
+	config_utils.SetChains(config)
 
 	// Initialize the SQLite DB
-	db, err := initDB(config.GlobalConfig.DbLocation)
+	db, err := db_utils.InitDB(config.GlobalConfig.DbLocation)
 	if err != nil {
 		log.Fatalf("Error initializing DB: %v\n", err)
 		return
 	}
-	defer CloseDB(db)
+	defer db_utils.CloseDB(db)
 
     
 	// make a channel to handle graceful shutdown
@@ -78,28 +73,28 @@ func main() {
 	// benefits are independent operations not constrained by other process cycle time
 	// key constraint will be the SQLite DB as it is a shared resource
 	for _, chainConfig := range config.Chains {
-		chain := Chain(chainConfig)
+		chain := chaindata.Chain(chainConfig)
 		wg.Add(2)
 
-		go func(c Chain) {
+		go func(c chaindata.Chain) {
 			defer wg.Done()
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				default:
-					StartMetricsUpdater(chain, db)
+					api.StartMetricsUpdater(db, chain.ChainID)
 				}
 			}
 		}(chain)
-		go func(c Chain) {
+		go func(c chaindata.Chain) {
 			defer wg.Done()
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				default:
-					processChain(c, db, config.GlobalConfig.InitialScan, config.GlobalConfig.RestPeriod)
+					chaindata.ProcessChain(c, db, config.GlobalConfig.InitialScan, config.GlobalConfig.RestPeriod)
 					time.Sleep(time.Duration(config.GlobalConfig.RestPeriod) * time.Second)
 				}
 			}
@@ -107,15 +102,16 @@ func main() {
 	}
 
 	// Set up the HTTP server
-	app := &App{DB: db}
-	customRegistry, err := InitMetrics()
+	customRegistry, err := api.InitMetrics()
 	if err != nil {
 		log.Fatalf("Error initializing metrics: %v\n", err)
 	}
 
 	// create a mux/router for handlers
 	mux := http.NewServeMux()
-	mux.HandleFunc("/signrate", app.amountOfSignatureNotFoundHandler)
+	mux.HandleFunc("/signrate", func(w http.ResponseWriter, r *http.Request) {
+		api.APIHandler(db, w, r)
+	})
 	// add prom metrics endpoint - dont need the wrapper around MetricsHandler
 	mux.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
 
@@ -129,21 +125,21 @@ func main() {
 
 	// Start the HTTP server in a separate goroutine - to alllow for graceful shutdown
 	go func() {
-		Logger("INFO", "HTTP Server is running on "+":"+srv.Addr)
+		logger.PostLog("INFO", "HTTP Server is running on "+":"+srv.Addr)
 		if err := srv.ListenAndServe(); err != nil {
-			Logger("ERROR", fmt.Sprintf("HTTP server shutdown error: %v", err))
+			logger.PostLog("ERROR", fmt.Sprintf("HTTP server shutdown error: %v", err))
 		}
 	}()
 
 	select {
 	case <-stopGraceful:
-		Logger("INFO", "Initiating graceful shutdown...")
+		logger.PostLog("INFO", "Initiating graceful shutdown...")
 		// Existing graceful shutdown code
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
 		
 		if err := srv.Shutdown(shutdownCtx); err != http.ErrServerClosed {
-			Logger("ERROR", fmt.Sprintf("HTTP server error: %v", err))
+			logger.PostLog("ERROR", fmt.Sprintf("HTTP server error: %v", err))
 		}
 		
 		cancel() // Cancel context for goroutines
@@ -157,20 +153,20 @@ func main() {
 		
 		select {
 		case <-done:
-			Logger("INFO", "Graceful shutdown completed")
+			logger.PostLog("INFO", "Graceful shutdown completed")
 		case <-time.After(10 * time.Second):
-			Logger("WARN", "Graceful shutdown timed out")
+			logger.PostLog("WARN", "Graceful shutdown timed out")
 		}
 	
 	case <-stopImmediate:
-		Logger("INFO", "Immediate shutdown requested")
+		logger.PostLog("INFO", "Immediate shutdown requested")
 		// Immediate shutdown - just exit
 		cancel()  // Cancel context for goroutines
-		CloseDB(db)
+		db_utils.CloseDB(db)
 		os.Exit(1)
 	}
 
 	// Close the SQLite DB
-	CloseDB(db)
-	Logger("INFO", "Shutdown complete")
+	db_utils.CloseDB(db)
+	logger.PostLog("INFO", "Shutdown complete")
 }

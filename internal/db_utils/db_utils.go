@@ -1,6 +1,7 @@
-package main
+package db_utils
 
 import (
+	"cometbftsignrate/internal/logger"
 	"database/sql"
 	"fmt"
 	"log"
@@ -9,8 +10,8 @@ import (
 )
 
 // initDB initializes the database and creates the table if it doesn't exist.
-func initDB(dbFile string) (*sql.DB, error ) {
-	Logger("INFO", "Initializing database...")
+func InitDB(dbFile string) (*sql.DB, error ) {
+	logger.PostLog("INFO", "Initializing database...")
 
 	if dbFile == "" {
 		return nil, fmt.Errorf("dbFile is empty")
@@ -44,7 +45,7 @@ func initDB(dbFile string) (*sql.DB, error ) {
 func CloseDB(db *sql.DB) {
 	err := db.Close()
 	if err != nil {
-		Logger("ERROR", fmt.Sprintf("Error closing the database: %v", err))
+		logger.PostLog("ERROR", fmt.Sprintf("Error closing the database: %v", err))
 	}
 }
 
@@ -71,12 +72,12 @@ func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address str
 		VALUES (?, ?, ?, ?, ?, ?)`
 		_, err = db.Exec(insertSQL, timestamp, chainID, address, blockHeight, signature, signatureFound)
 		if err != nil {
-			Logger("ERROR", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: err.Error()})
+			logger.PostLog("ERROR", logger.ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: err.Error()})
 			return err
 		}
-		Logger("INFO", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, SignatureFound: signatureFound, Success: true, Message: "Successfully inserted block height into DB"})
+		logger.PostLog("INFO", logger.ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, SignatureFound: signatureFound, Success: true, Message: "Successfully inserted block height into DB"})
 	} else {
-		Logger("WARN", ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: "Block height already exists in DB"})
+		logger.PostLog("WARN", logger.ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: "Block height already exists in DB"})
 	}	
 	return nil
 }
@@ -98,7 +99,7 @@ func GetLastBlockHeight(db *sql.DB, chainID string, currentNodeHeight int, signi
 	// If pruning is enabled, check if the difference between the current node height and the last checked height is greater than the signing window
 	if pruningEnabled {
 		if currentNodeHeight - blockHeight > signingWindow {
-			Logger("WARN", fmt.Sprintf("Last checked height for %s is older than the signing window (%d)", chainID,signingWindow))
+			logger.PostLog("WARN", fmt.Sprintf("Last checked height for %s is older than the signing window (%d)", chainID,signingWindow))
 			return currentNodeHeight - signingWindow, nil
 		}
 	}
@@ -125,7 +126,7 @@ func DeleteOldRecords(db *sql.DB, chainID string, recordCount int) error {
 	err := db.QueryRow(query, chainID, recordCount).Scan(&thresholdID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			Logger("WARN", ModuleDB{ChainID: chainID, Operation: "DeleteOldRecords", Success: true, Message: "No records to prune"})
+			logger.PostLog("WARN", logger.ModuleDB{ChainID: chainID, Operation: "DeleteOldRecords", Success: true, Message: "No records to prune"})
 			return nil
 		}
 		return fmt.Errorf("failed to get threshold ID: %w", err)
@@ -142,11 +143,11 @@ func DeleteOldRecords(db *sql.DB, chainID string, recordCount int) error {
 		return fmt.Errorf("failed to delete old records: %w", err)
 	}
 
-	Logger("INFO", ModuleDB{ChainID: chainID, Operation: "DeleteOldRecords", Success: true, Message: "Successfully deleted old records"})
+	logger.PostLog("INFO", logger.ModuleDB{ChainID: chainID, Operation: "DeleteOldRecords", Success: true, Message: "Successfully deleted old records"})
 	return nil
 }
 
-func getAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (int, string, error) {
+func GetAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (int, string, error) {
 	// Check if the chain_id exists in the database
 	var exists bool
 	querySQL := `
@@ -204,7 +205,7 @@ func getAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (i
 	return count, timestamp, nil
 }
 
-func getNumberOfRecordsForChain(db *sql.DB, chainID string) (int, error) {
+func GetNumberOfRecordsForChain(db *sql.DB, chainID string) (int, error) {
 	// Get the number of records for the given chain_id
 	var count int
 	querySQL := `SELECT COUNT(*) FROM cometbft_signatures WHERE chain_id = ?`

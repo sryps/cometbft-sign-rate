@@ -1,4 +1,4 @@
-package main
+package logger
 
 import (
 	"encoding/json"
@@ -45,7 +45,7 @@ type ModulePruner struct {
 	Success   bool   `json:"success"`
 }
 
-func Logger(logLevel string, payload interface{}) {
+func PostLog(logLevel string, payload interface{}) {
 	entry := LogEntry{
 		Timestamp: time.Now().Format(time.RFC3339),
 		Level:     logLevel,
