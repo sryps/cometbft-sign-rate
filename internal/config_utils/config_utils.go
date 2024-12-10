@@ -1,4 +1,4 @@
-package main
+package config_utils
 
 import (
 	"io"
@@ -6,6 +6,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 )
+
+var ChainsData []ChainConfig
 
 type Config struct {
 	GlobalConfig GlobalChainConfig `toml:"global"`
@@ -35,7 +37,7 @@ func NewChainConfig() *ChainConfig {
 	}
 }
 
-func parseConfig(filename string) (*Config, error) {
+func ParseConfig(filename string) (*Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -53,4 +55,8 @@ func parseConfig(filename string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+func SetChains(config *Config) {
+	ChainsData = append(ChainsData, config.Chains...)
 }

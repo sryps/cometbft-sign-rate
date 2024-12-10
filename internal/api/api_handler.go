@@ -1,6 +1,9 @@
-package main
+package api
 
 import (
+	"cometbftsignrate/internal/db_utils"
+	"cometbftsignrate/internal/logger"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,7 +11,7 @@ import (
 	"time"
 )
 
-func (app *App) amountOfSignatureNotFoundHandler(w http.ResponseWriter, r *http.Request) {
+func APIHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	// Get parameters from query
 	chainID := r.URL.Query().Get("chainID")
 	signingWindowStr := r.URL.Query().Get("signingWindow")
@@ -25,7 +28,7 @@ func (app *App) amountOfSignatureNotFoundHandler(w http.ResponseWriter, r *http.
 	}
 
 	// Call the getAmountOfSignatureNotFound function
-	count, latestBlockTimestamp, err := getAmountOfSignatureNotFound(app.DB, chainID, signingWindow)
+	count, latestBlockTimestamp, err := db_utils.GetAmountOfSignatureNotFound(db, chainID, signingWindow)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -44,7 +47,7 @@ func (app *App) amountOfSignatureNotFoundHandler(w http.ResponseWriter, r *http.
 	signRate := float64(1) - (float64(count) / float64(signingWindow))
 
 	// Get number of records in DB for this chain
-	numRecords, err := getNumberOfRecordsForChain(app.DB, chainID)
+	numRecords, err := db_utils.GetNumberOfRecordsForChain(db, chainID)
 	if err != nil {
 		fmt.Printf("Error fetching number of records for chain %s: %v\n", chainID, err)
 	}
@@ -64,5 +67,5 @@ func (app *App) amountOfSignatureNotFoundHandler(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
-	Logger("INFO", ModuleHTTP{ChainID: chainID, Operation: "API HTTP Request", Success: true})
+	logger.PostLog("INFO", logger.ModuleHTTP{ChainID: chainID, Operation: "API HTTP Request", Success: true})
 }

@@ -1,6 +1,9 @@
-package main
+package api
 
 import (
+	"cometbftsignrate/internal/config_utils"
+	"cometbftsignrate/internal/db_utils"
+	"cometbftsignrate/internal/logger"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -71,22 +74,22 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Periodically update metrics every 15 seconds
-func StartMetricsUpdater(chain Chain, db *sql.DB) {
-	Logger("INFO", fmt.Sprintf("Starting metrics updater for %s...", chain.ChainID))
+func StartMetricsUpdater( db *sql.DB, chainID string) {
+	logger.PostLog("INFO", fmt.Sprintf("Starting metrics updater for %s...", chainID))
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		updateMetrics(db)
+		updateMetrics(db, config_utils.ChainsData)
 	}
 }
 
 // Collect and update Prometheus metrics
-func updateMetrics(db *sql.DB) {
+func updateMetrics(db *sql.DB, chains []config_utils.ChainConfig) {
 
-	for _, chain := range Chains {
+	for _, chain := range chains {
 		// Get the data for this chainID
-		count, latestBlockTimestamp, err := getAmountOfSignatureNotFound(db, chain.ChainID, chain.SigningWindow)
+		count, latestBlockTimestamp, err := db_utils.GetAmountOfSignatureNotFound(db, chain.ChainID, chain.SigningWindow)
 		if err != nil {
 			fmt.Printf("Error fetching data for chain %s: %v\n", chain.ChainID, err)
 			continue
@@ -105,7 +108,7 @@ func updateMetrics(db *sql.DB) {
 		signRate := float64(1) - (float64(count) / float64(chain.SigningWindow)) // Example, adjust accordingly
 
 		// Get number of records in DB for this chain
-		numRecords, err := getNumberOfRecordsForChain(db, chain.ChainID)
+		numRecords, err := db_utils.GetNumberOfRecordsForChain(db, chain.ChainID)
 		if err != nil {
 			fmt.Printf("Error fetching number of records for chain %s: %v\n", chain.ChainID, err)
 		}
