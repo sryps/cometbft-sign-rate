@@ -52,6 +52,20 @@ var (
 		},
 		[]string{"chainID"},
 	)
+	NumberOfProposedBlocks = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "number_of_proposed_blocks",
+			Help: "Number of proposed blocks in signing window.",
+		},
+		[]string{"chainID", "address", "signing_window"},
+	)
+	NumberOfEmptyProposedBlocks = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "number_of_empty_proposed_blocks",
+			Help: "Number of proposed blocks with zero TXs in them during the signing window.",
+		},
+		[]string{"chainID", "address", "signing_window"},
+	)
 )
 
 // Initialize and register Prometheus metrics
@@ -64,6 +78,8 @@ func InitMetrics() (*prometheus.Registry, error) {
     customRegistry.MustRegister(SecondsSinceLatestBlockTimestamp)
 	customRegistry.MustRegister(NumberOfRecordsForChain)
 	customRegistry.MustRegister(SigningWindowSize)
+	customRegistry.MustRegister(NumberOfProposedBlocks)
+	customRegistry.MustRegister(NumberOfEmptyProposedBlocks)
 
     return customRegistry, nil
 }
@@ -112,10 +128,24 @@ func updateMetrics(db *sql.DB, chains []config_utils.ChainConfig) {
 		if err != nil {
 			fmt.Printf("Error fetching number of records for chain %s: %v\n", chain.ChainID, err)
 		}
-
 		var window int = chain.SigningWindow
 		if numRecords < chain.SigningWindow {
 			window = numRecords
+		}
+
+		// Convert the signing window to a string
+		signingWindowStr := fmt.Sprintf("%d", chain.SigningWindow)
+
+		// Check number of proposed blocks in signing window
+		proposedBlocks, err := db_utils.GetNumberOfProposedBlocks(db, chain.ChainID, chain.HexAddress, window)
+		if err != nil {
+			logger.PostLog("ERROR", logger.ModuleDB{ChainID: chain.ChainID, Operation: "GetNumberOfProposedBlocks", Success: false, Message: err.Error()})
+		}
+		
+		// Check number of empty proposed blocks in signing window
+		emptyBlocks, err := db_utils.GetNumberOfEmptyProposedBlocks(db, chain.ChainID, chain.HexAddress, window)
+		if err != nil {
+			logger.PostLog("ERROR", logger.ModuleDB{ChainID: chain.ChainID, Operation: "GetNumberOfEmptyProposedBlocks", Success: false, Message: err.Error()})
 		}
 		
 		// Update Prometheus metrics
@@ -124,5 +154,7 @@ func updateMetrics(db *sql.DB, chains []config_utils.ChainConfig) {
 		SecondsSinceLatestBlockTimestamp.WithLabelValues(chain.ChainID).Set(float64(roundedDuration))
 		NumberOfRecordsForChain.WithLabelValues(chain.ChainID).Set(float64(numRecords))
 		SigningWindowSize.WithLabelValues(chain.ChainID).Set(float64(window))
+		NumberOfProposedBlocks.WithLabelValues(chain.ChainID, chain.HexAddress, signingWindowStr).Set(float64(proposedBlocks))
+		NumberOfEmptyProposedBlocks.WithLabelValues(chain.ChainID, chain.HexAddress, signingWindowStr).Set(float64(emptyBlocks))
 	}
 }

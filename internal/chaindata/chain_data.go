@@ -49,9 +49,9 @@ func ProcessChain(chain Chain, db *sql.DB, initialScan int, sleepDuration int) {
 
 		// Insert data for all blocks between last checked height and current height
 		for i := lastCheckedHeight; i < currentHeight; i++ {
-			timestamp, sigFound, signature := api.CheckBlockSignature(chain.ChainID, chain.HostAddress, chain.HexAddress, i, chain.RPCdelay)
+			timestamp, sigFound, signature, proposerMatch, numTXs, emptyBlock := api.CheckBlockSignature(chain.ChainID, chain.HostAddress, chain.HexAddress, i, chain.RPCdelay)
 
-			err := db_utils.InsertBlockHeight(db, timestamp, chain.ChainID, chain.HexAddress, i, sigFound, signature)
+			err := db_utils.InsertBlockHeight(db, timestamp, chain.ChainID, chain.HexAddress, i, sigFound, signature, proposerMatch, numTXs, emptyBlock)
 			if err != nil {
 				logger.PostLog("ERROR", logger.ModuleDB{ChainID: chain.ChainID, Operation: "InsertBlockHeight", Height: i, SignatureFound: sigFound, Success: false, Message: err.Error()})
 				os.Exit(1)

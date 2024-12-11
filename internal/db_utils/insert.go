@@ -9,7 +9,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address string, blockHeight int, signatureFound bool, signature string) error {
+func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address string, blockHeight int, signatureFound bool, signature string, proposerMatch bool, numTXs int, emptyBlock bool) error {
 	// Check the highest block_height for the given chain_id
 	var latestRecordedBlockHeight sql.NullInt64
 	querySQL := `SELECT MAX(block_height) FROM cometbft_signatures WHERE chain_id = ?`
@@ -29,9 +29,9 @@ func InsertBlockHeight(db *sql.DB, timestamp string, chainID string, address str
 
 	if !exists {
 		// Insert the new row
-		insertSQL := `INSERT INTO cometbft_signatures (timestamp, chain_id, address, block_height, signature, signatureFound)
-		VALUES (?, ?, ?, ?, ?, ?)`
-		_, err = db.Exec(insertSQL, timestamp, chainID, address, blockHeight, signature, signatureFound)
+		insertSQL := `INSERT INTO cometbft_signatures (timestamp, chain_id, address, block_height, signature, signaturefound, proposermatch, numtxs, emptyblock)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = db.Exec(insertSQL, timestamp, chainID, address, blockHeight, signature, signatureFound, proposerMatch, numTXs, emptyBlock)
 		if err != nil {
 			logger.PostLog("ERROR", logger.ModuleDB{ChainID: chainID, Operation: "InsertBlock", Height: blockHeight, Success: false, Message: err.Error()})
 			os.Exit(1)

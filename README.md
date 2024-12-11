@@ -126,6 +126,14 @@ GET http://127.0.0.1:8080/metrics
 
 **Example Response:**
 ```text
+# HELP number_of_empty_proposed_blocks Number of proposed blocks with zero TXs in them during the signing window.
+# TYPE number_of_empty_proposed_blocks gauge
+number_of_empty_proposed_blocks{address="942EE4CEC79B9B74F95681A1C7FEC8A6C9C0389C",chainID="juno-1",signing_window="5000"} 21
+number_of_empty_proposed_blocks{address="A16E480524D636B2DA2AD18483327C2E10A5E8A0",chainID="osmosis-1",signing_window="5000"} 0
+# HELP number_of_proposed_blocks Number of proposed blocks in signing window.
+# TYPE number_of_proposed_blocks gauge
+number_of_proposed_blocks{address="942EE4CEC79B9B74F95681A1C7FEC8A6C9C0389C",chainID="juno-1",signing_window="5000"} 21
+number_of_proposed_blocks{address="A16E480524D636B2DA2AD18483327C2E10A5E8A0",chainID="osmosis-1",signing_window="5000"} 36
 # HELP number_of_records_in_db_for_chain Number of records in DB for chain.
 # TYPE number_of_records_in_db_for_chain gauge
 number_of_records_in_db_for_chain{chainID="juno-1"} 836

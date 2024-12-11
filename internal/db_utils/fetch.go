@@ -100,3 +100,43 @@ func GetNumberOfRecordsForChain(db *sql.DB, chainID string) (int, error) {
 	}
 	return count, nil
 }
+
+func GetNumberOfProposedBlocks(db *sql.DB, chainID string, address string, window int) (int, error) {
+	// Scan the last X rows and count how many have proposermatch = 1
+	var count int
+	querySQL := `
+		SELECT COUNT(*)
+		FROM (
+			SELECT proposermatch 
+			FROM cometbft_signatures
+			WHERE chain_id = ? AND address = ?
+			ORDER BY block_height DESC
+			LIMIT ?
+		) AS last_rows
+		WHERE proposermatch = 1`
+	err := db.QueryRow(querySQL, chainID, address, window).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count proposed blocks for chain_id %s: %v", chainID, err)
+	}
+	return count, nil
+}
+
+func GetNumberOfEmptyProposedBlocks(db *sql.DB, chainID string, address string, window int) (int, error) {
+	// Scan the last X rows and count how many have proposermatch = 1 and numtxs = 0
+	var count int
+	querySQL := `
+		SELECT COUNT(*)
+		FROM (
+			SELECT proposermatch, numtxs
+			FROM cometbft_signatures
+			WHERE chain_id = ? AND address = ?
+			ORDER BY block_height DESC
+			LIMIT ?
+		) AS last_rows
+		WHERE proposermatch = 1 AND numtxs = 0`
+	err := db.QueryRow(querySQL, chainID, address, window).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count proposed blocks with no transactions for chain_id %s: %v", chainID, err)
+	}
+	return count, nil
+}

@@ -27,8 +27,12 @@ type CurrentHeightResponse struct {
 type BlockResult struct {
 	Result struct {
 		Block struct {
+			Data struct {
+				Txs []string `json:"txs"`
+			} `json:"data"`
 			Header struct {
 				Time string `json:"time"`
+				ProposerAddress string `json:"proposer_address"`
 			} `json:"header"`
 			LastCommit struct {
 				Signatures []struct {
@@ -82,7 +86,7 @@ func GetCurrentHeight(chainID string, address string) (int, error) {
 }
 
 
-func CheckBlockSignature(ChainID string, host string, address string, height int, delay string) (string, bool, string){
+func CheckBlockSignature(ChainID string, host string, address string, height int, delay string) (string, bool, string, bool, int, bool) {
 	if delay != "0ms" {
 		delayDuration, err := time.ParseDuration(delay)
 		if err != nil {
@@ -113,8 +117,10 @@ func CheckBlockSignature(ChainID string, host string, address string, height int
 		os.Exit(1)
 	}
 
+	// Set block timestamp
 	time := blockData.Result.Block.Header.Time
 
+	// Check if signature is found
 	var signatureFound bool
 	var signature string
 	for _, sig := range blockData.Result.Block.LastCommit.Signatures {
@@ -124,7 +130,22 @@ func CheckBlockSignature(ChainID string, host string, address string, height int
 			break
 		}
 	}
+
+	// Check block proposer address
+	var proposerMatch bool
+	proposerAddress := blockData.Result.Block.Header.ProposerAddress
+	if address == proposerAddress {
+		proposerMatch = true
+	}
+
+	// Check number of TXs in block
+	numTXs := len(blockData.Result.Block.Data.Txs)
+
+	var emptyBlock bool
+	if numTXs == 0 {
+		emptyBlock = true
+	}
 	
 	logger.PostLog("INFO", logger.ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Height: height, SignatureFound: signatureFound})
-	return time,signatureFound,signature
+	return time,signatureFound,signature, proposerMatch, numTXs, emptyBlock
 }

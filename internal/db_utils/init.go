@@ -29,7 +29,10 @@ func InitDB(dbFile string) (*sql.DB, error ) {
 		address TEXT NOT NULL,
 		block_height INTEGER NOT NULL,
 		signature TEXT NOT NULL,
-		signatureFound INTEGER NOT NULL DEFAULT 0
+		signaturefound INTEGER NOT NULL DEFAULT 0,
+		proposermatch INTEGER NOT NULL DEFAULT 0,
+		numtxs INTEGER NOT NULL DEFAULT 0,
+		emptyblock INTEGER NOT NULL DEFAULT 0
 	);`
 	_, err = db.Exec(createTableSQL)
 	if err != nil {
