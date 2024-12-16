@@ -22,7 +22,7 @@ To install CometBFT Sign Rate, clone the repository and run `go build`:
 ```bash
 git clone https://github.com/sryps/cometbft-sign-rate.git
 cd cometbft-sign-rate
-go build
+go build ./cmd/cometbftsignrate
 ```
 
 ## Usage
