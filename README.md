@@ -76,6 +76,9 @@ signing_window = 5000
 pruning = true
 ```
 
+note: the HEX address can be found by GET request to rpc endpoint of the validator node:
+`curl <VALIDATOR_IP>:<VALIDATOR_PORT>/status | jq .result.validator_info.address`
+
 ## Monitoring
 
 ### Endpoint: `GET /signrate`
