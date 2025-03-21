@@ -126,6 +126,24 @@ func updateMetrics(db *sql.DB, chains []config_utils.ChainConfig) {
 			continue
 		}
 
+		// Get number of records in DB for this chain
+		numRecords, err := db_utils.GetNumberOfRecordsForChain(db, chain.ChainID)
+		if err != nil {
+			fmt.Printf("Error fetching number of records for chain %s: %v\n", chain.ChainID, err)
+		}
+		var window int = chain.SigningWindow
+		var signRate float64
+		if numRecords < chain.SigningWindow {
+			window = numRecords
+			signRate = float64(1) - (float64(count) / float64(window))
+		} else {
+			signRate = float64(1) - (float64(count) / float64(chain.SigningWindow))
+		}
+
+		if count == numRecords || count == chain.SigningWindow {
+			signRate = float64(0)
+		}
+
 		// Parse the latestBlockTimestamp string to time.Time
 		latestBlockTime, err := time.Parse(time.RFC3339, latestBlockTimestamp)
 		if err != nil {
@@ -134,19 +152,6 @@ func updateMetrics(db *sql.DB, chains []config_utils.ChainConfig) {
 		}
 		duration := time.Since(latestBlockTime)
 		roundedDuration := int(duration.Seconds())
-
-		// Calculate the signing rate percentage
-		signRate := float64(1) - (float64(count) / float64(chain.SigningWindow)) // Example, adjust accordingly
-
-		// Get number of records in DB for this chain
-		numRecords, err := db_utils.GetNumberOfRecordsForChain(db, chain.ChainID)
-		if err != nil {
-			fmt.Printf("Error fetching number of records for chain %s: %v\n", chain.ChainID, err)
-		}
-		var window int = chain.SigningWindow
-		if numRecords < chain.SigningWindow {
-			window = numRecords
-		}
 
 		// Convert the signing window to a string
 		signingWindowStr := fmt.Sprintf("%d", chain.SigningWindow)
