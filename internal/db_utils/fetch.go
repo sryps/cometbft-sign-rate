@@ -94,37 +94,37 @@ func GetTimestampDiff(db *sql.DB, chainID string, address string) (int, error) {
 	// Average diff for last 25 blocks
 	querySQL := `SELECT timestamp, validatortimestamp FROM cometbft_signatures WHERE chain_id = ? AND address = ? ORDER BY block_height DESC LIMIT 25`
 	rows, err := db.Query(querySQL, chainID, address)
-	if err != nil {
-		logger.PostLog("ERROR", fmt.Sprintf("failed to get proposer and validator timestamps: %v", err))
-	}
 	defer rows.Close()
 
-	timeDiffArray := []int{}
-	for rows.Next() {
-		var proposerTimestamp string
-		var validatorTimestamp string
-		err = rows.Scan(&proposerTimestamp, &validatorTimestamp)
-		if err != nil {
-			logger.PostLog("ERROR", fmt.Sprintf("failed to scan proposer and validator timestamps: %v", err))
+	var average int
+	if rows.Err() != nil {
+		timeDiffArray := []int{}
+		for rows.Next() {
+			var proposerTimestamp string
+			var validatorTimestamp string
+			err = rows.Scan(&proposerTimestamp, &validatorTimestamp)
+			if err != nil {
+				logger.PostLog("ERROR", fmt.Sprintf("failed to scan proposer and validator timestamps: %v", err))
+			}
+
+			propTime, err := time.Parse(time.RFC3339, proposerTimestamp)
+			if err != nil {
+				logger.PostLog("ERROR", fmt.Sprintf("failed to parse proposer timestamp: %v", err))
+			}
+			valTime, err := time.Parse(time.RFC3339, validatorTimestamp)
+			if err != nil {
+				logger.PostLog("ERROR", fmt.Sprintf("failed to parse validator timestamp: %v", err))
+			}
+			timeDiffArray = append(timeDiffArray, int(valTime.Sub(propTime).Milliseconds()))
 		}
 
-		propTime, err := time.Parse(time.RFC3339, proposerTimestamp)
-		if err != nil {
-			logger.PostLog("ERROR", fmt.Sprintf("failed to parse proposer timestamp: %v", err))
+		// Calculate the average time difference
+		var sum int
+		for _, diff := range timeDiffArray {
+			sum += diff
 		}
-		valTime, err := time.Parse(time.RFC3339, validatorTimestamp)
-		if err != nil {
-			logger.PostLog("ERROR", fmt.Sprintf("failed to parse validator timestamp: %v", err))
-		}
-		timeDiffArray = append(timeDiffArray, int(valTime.Sub(propTime).Milliseconds()))
+		average = sum / len(timeDiffArray)
 	}
-
-	// Calculate the average time difference
-	var sum int
-	for _, diff := range timeDiffArray {
-		sum += diff
-	}
-	average := sum / len(timeDiffArray)
 	return average, nil
 }
 func GetNumberOfRecordsForChain(db *sql.DB, chainID string) (int, error) {
