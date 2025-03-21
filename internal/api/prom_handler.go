@@ -66,22 +66,30 @@ var (
 		},
 		[]string{"chainID", "address", "signing_window"},
 	)
+	LastBlockTimeDiff = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "proposer_signature_time_diff_ms",
+			Help: "Average difference between proposer and validator timestamps in milliseconds for last 25 blocks.",
+		},
+		[]string{"chainID", "address"},
+	)
 )
 
 // Initialize and register Prometheus metrics
 func InitMetrics() (*prometheus.Registry, error) {
 	customRegistry := prometheus.NewRegistry()
 
-    // Register your custom metrics
-    customRegistry.MustRegister(SignatureNotFoundCount)
-    customRegistry.MustRegister(SigningRatePercentage)
-    customRegistry.MustRegister(SecondsSinceLatestBlockTimestamp)
+	// Register your custom metrics
+	customRegistry.MustRegister(SignatureNotFoundCount)
+	customRegistry.MustRegister(SigningRatePercentage)
+	customRegistry.MustRegister(SecondsSinceLatestBlockTimestamp)
 	customRegistry.MustRegister(NumberOfRecordsForChain)
 	customRegistry.MustRegister(SigningWindowSize)
 	customRegistry.MustRegister(NumberOfProposedBlocks)
 	customRegistry.MustRegister(NumberOfEmptyProposedBlocks)
+	customRegistry.MustRegister(LastBlockTimeDiff)
 
-    return customRegistry, nil
+	return customRegistry, nil
 }
 
 // Metrics handler to expose the metrics to Prometheus
@@ -90,7 +98,7 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Periodically update metrics every 15 seconds
-func StartMetricsUpdater( db *sql.DB, chainID string) {
+func StartMetricsUpdater(db *sql.DB, chainID string) {
 	logger.PostLog("INFO", fmt.Sprintf("Starting metrics updater for %s...", chainID))
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -104,6 +112,13 @@ func StartMetricsUpdater( db *sql.DB, chainID string) {
 func updateMetrics(db *sql.DB, chains []config_utils.ChainConfig) {
 
 	for _, chain := range chains {
+
+		// Get diff between proposer timestamp and validator timestamp
+		averageTimeDiff, err := db_utils.GetTimestampDiff(db, chain.ChainID, chain.HexAddress)
+		if err != nil {
+			logger.PostLog("ERROR", logger.ModuleDB{ChainID: chain.ChainID, Operation: "GetTimestampDiff", Success: false, Message: err.Error()})
+		}
+
 		// Get the data for this chainID
 		count, latestBlockTimestamp, err := db_utils.GetAmountOfSignatureNotFound(db, chain.ChainID, chain.SigningWindow)
 		if err != nil {
@@ -141,13 +156,13 @@ func updateMetrics(db *sql.DB, chains []config_utils.ChainConfig) {
 		if err != nil {
 			logger.PostLog("ERROR", logger.ModuleDB{ChainID: chain.ChainID, Operation: "GetNumberOfProposedBlocks", Success: false, Message: err.Error()})
 		}
-		
+
 		// Check number of empty proposed blocks in signing window
 		emptyBlocks, err := db_utils.GetNumberOfEmptyProposedBlocks(db, chain.ChainID, chain.HexAddress, window)
 		if err != nil {
 			logger.PostLog("ERROR", logger.ModuleDB{ChainID: chain.ChainID, Operation: "GetNumberOfEmptyProposedBlocks", Success: false, Message: err.Error()})
 		}
-		
+
 		// Update Prometheus metrics
 		SignatureNotFoundCount.WithLabelValues(chain.ChainID, chain.HexAddress).Set(float64(count))
 		SigningRatePercentage.WithLabelValues(chain.ChainID, chain.HexAddress).Set(signRate)
@@ -156,5 +171,6 @@ func updateMetrics(db *sql.DB, chains []config_utils.ChainConfig) {
 		SigningWindowSize.WithLabelValues(chain.ChainID).Set(float64(window))
 		NumberOfProposedBlocks.WithLabelValues(chain.ChainID, chain.HexAddress, signingWindowStr).Set(float64(proposedBlocks))
 		NumberOfEmptyProposedBlocks.WithLabelValues(chain.ChainID, chain.HexAddress, signingWindowStr).Set(float64(emptyBlocks))
+		LastBlockTimeDiff.WithLabelValues(chain.ChainID, chain.HexAddress).Set(float64(averageTimeDiff))
 	}
 }

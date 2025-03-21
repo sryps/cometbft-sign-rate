@@ -31,13 +31,14 @@ type BlockResult struct {
 				Txs []string `json:"txs"`
 			} `json:"data"`
 			Header struct {
-				Time string `json:"time"`
+				Time            string `json:"time"`
 				ProposerAddress string `json:"proposer_address"`
 			} `json:"header"`
 			LastCommit struct {
 				Signatures []struct {
 					ValidatorAddress string `json:"validator_address"`
-					Signature string `json:"signature"`
+					Timestamp        string `json:"timestamp"`
+					Signature        string `json:"signature"`
 				} `json:"signatures"`
 			} `json:"last_commit"`
 		} `json:"block"`
@@ -46,7 +47,7 @@ type BlockResult struct {
 
 func GetCurrentHeight(chainID string, address string) (int, error) {
 	url := fmt.Sprintf("%s/status", address)
-	
+
 	resp, err := http.Get(url)
 	if err != nil {
 		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: chainID, Operation: "getCurrentHeight", Success: false, Message: err.Error()})
@@ -85,8 +86,7 @@ func GetCurrentHeight(chainID string, address string) (int, error) {
 	return num, nil
 }
 
-
-func CheckBlockSignature(ChainID string, host string, address string, height int, delay string) (string, bool, string, bool, int, bool) {
+func CheckBlockSignature(ChainID string, host string, address string, height int, delay string) (string, bool, string, string, bool, int, bool) {
 	if delay != "0ms" {
 		delayDuration, err := time.ParseDuration(delay)
 		if err != nil {
@@ -96,7 +96,7 @@ func CheckBlockSignature(ChainID string, host string, address string, height int
 		time.Sleep(delayDuration)
 	}
 	url := fmt.Sprintf("%s/block?height=%d", host, height)
-	
+
 	resp, err := http.Get(url)
 	if err != nil {
 		logger.PostLog("ERROR", logger.ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Success: false, Message: err.Error()})
@@ -123,9 +123,11 @@ func CheckBlockSignature(ChainID string, host string, address string, height int
 	// Check if signature is found
 	var signatureFound bool
 	var signature string
+	var valTimestamp string
 	for _, sig := range blockData.Result.Block.LastCommit.Signatures {
 		if sig.ValidatorAddress == address {
 			signatureFound = true
+			valTimestamp = sig.Timestamp
 			signature = sig.Signature
 			break
 		}
@@ -145,7 +147,7 @@ func CheckBlockSignature(ChainID string, host string, address string, height int
 	if numTXs == 0 {
 		emptyBlock = true
 	}
-	
+
 	logger.PostLog("INFO", logger.ModuleHTTP{ChainID: ChainID, Operation: "checkBlockSignature", Height: height, SignatureFound: signatureFound})
-	return time,signatureFound,signature, proposerMatch, numTXs, emptyBlock
+	return time, signatureFound, valTimestamp, signature, proposerMatch, numTXs, emptyBlock
 }

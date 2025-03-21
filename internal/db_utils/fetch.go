@@ -4,8 +4,8 @@ import (
 	"cometbftsignrate/internal/logger"
 	"database/sql"
 	"fmt"
-
 	_ "github.com/mattn/go-sqlite3"
+	"time"
 )
 
 func GetLastBlockHeight(db *sql.DB, chainID string, currentNodeHeight int, signingWindow int, pruningEnabled bool) (int, error) {
@@ -22,15 +22,14 @@ func GetLastBlockHeight(db *sql.DB, chainID string, currentNodeHeight int, signi
 
 	// If pruning is enabled, check if the difference between the current node height and the last checked height is greater than the signing window
 	if pruningEnabled {
-		if currentNodeHeight - blockHeight > signingWindow {
-			logger.PostLog("WARN", fmt.Sprintf("Last checked height for %s is older than the signing window (%d)", chainID,signingWindow))
+		if currentNodeHeight-blockHeight > signingWindow {
+			logger.PostLog("WARN", fmt.Sprintf("Last checked height for %s is older than the signing window (%d)", chainID, signingWindow))
 			return currentNodeHeight - signingWindow, nil
 		}
 	}
 
 	return blockHeight, nil
 }
-
 
 func GetAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (int, string, error) {
 	// Check if the chain_id exists in the database
@@ -67,7 +66,7 @@ func GetAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (i
 		) AS latest_signatures
 		WHERE signatureFound = 0;
 	`
-	
+
 	err = db.QueryRow(querySQL, chainID, numRecords).Scan(&count)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to get amount of signatures not found: %v", err)
@@ -90,6 +89,44 @@ func GetAmountOfSignatureNotFound(db *sql.DB, chainID string, numRecords int) (i
 	return count, timestamp, nil
 }
 
+func GetTimestampDiff(db *sql.DB, chainID string, address string) (int, error) {
+	// Get the proposer timestamp and validator timestamp for the given chain_id and address
+	// Average diff for last 25 blocks
+	querySQL := `SELECT timestamp, validatortimestamp FROM cometbft_signatures WHERE chain_id = ? AND address = ? ORDER BY block_height DESC LIMIT 25`
+	rows, err := db.Query(querySQL, chainID, address)
+	if err != nil {
+		logger.PostLog("ERROR", fmt.Sprintf("failed to get proposer and validator timestamps: %v", err))
+	}
+	defer rows.Close()
+
+	timeDiffArray := []int{}
+	for rows.Next() {
+		var proposerTimestamp string
+		var validatorTimestamp string
+		err = rows.Scan(&proposerTimestamp, &validatorTimestamp)
+		if err != nil {
+			logger.PostLog("ERROR", fmt.Sprintf("failed to scan proposer and validator timestamps: %v", err))
+		}
+
+		propTime, err := time.Parse(time.RFC3339, proposerTimestamp)
+		if err != nil {
+			logger.PostLog("ERROR", fmt.Sprintf("failed to parse proposer timestamp: %v", err))
+		}
+		valTime, err := time.Parse(time.RFC3339, validatorTimestamp)
+		if err != nil {
+			logger.PostLog("ERROR", fmt.Sprintf("failed to parse validator timestamp: %v", err))
+		}
+		timeDiffArray = append(timeDiffArray, int(valTime.Sub(propTime).Milliseconds()))
+	}
+
+	// Calculate the average time difference
+	var sum int
+	for _, diff := range timeDiffArray {
+		sum += diff
+	}
+	average := sum / len(timeDiffArray)
+	return average, nil
+}
 func GetNumberOfRecordsForChain(db *sql.DB, chainID string) (int, error) {
 	// Get the number of records for the given chain_id
 	var count int

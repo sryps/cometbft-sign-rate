@@ -53,13 +53,13 @@ func APIHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"chainID": chainID,
-		"requestedSigningWindow": signingWindow,
-		"missedSignatureCount":   count,
-		"signingRatePercentage": signRate,
-		"latestBlockTimestamp": latestBlockTimestamp,
+		"chainID":                          chainID,
+		"requestedSigningWindow":           signingWindow,
+		"missedSignatureCount":             count,
+		"signingRatePercentage":            signRate,
+		"latestBlockTimestamp":             latestBlockTimestamp,
 		"secondsSinceLatestBlockTimestamp": roundedDuration,
-		"availableRecords": numRecords,
+		"availableRecords":                 numRecords,
 	}
 
 	// Set response headers and encode response as JSON
@@ -69,3 +69,4 @@ func APIHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 	logger.PostLog("INFO", logger.ModuleHTTP{ChainID: chainID, Operation: "API HTTP Request", Success: true})
 }
+

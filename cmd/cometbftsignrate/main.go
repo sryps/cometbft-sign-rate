@@ -58,7 +58,6 @@ func main() {
 	}
 	defer db_utils.CloseDB(db)
 
-    
 	// make a channel to handle graceful shutdown
 	stopGraceful := make(chan os.Signal, 1)
 	stopImmediate := make(chan os.Signal, 1)
@@ -105,7 +104,7 @@ func main() {
 	if err != nil {
 		logger.PostLog("ERROR", fmt.Sprintf("Error initializing metrics: %v", err))
 		os.Exit(1)
-		
+
 	}
 
 	// create a mux/router for handlers
@@ -138,31 +137,31 @@ func main() {
 		// Existing graceful shutdown code
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
-		
+
 		if err := srv.Shutdown(shutdownCtx); err != http.ErrServerClosed {
 			logger.PostLog("ERROR", fmt.Sprintf("HTTP server error: %v", err))
 		}
-		
+
 		cancel() // Cancel context for goroutines
-		
+
 		// Wait for goroutines
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
 			close(done)
 		}()
-		
+
 		select {
 		case <-done:
 			logger.PostLog("INFO", "Graceful shutdown completed")
 		case <-time.After(10 * time.Second):
 			logger.PostLog("WARN", "Graceful shutdown timed out")
 		}
-	
+
 	case <-stopImmediate:
 		logger.PostLog("INFO", "Immediate shutdown requested")
 		// Immediate shutdown - just exit
-		cancel()  // Cancel context for goroutines
+		cancel() // Cancel context for goroutines
 		db_utils.CloseDB(db)
 		os.Exit(1)
 	}
